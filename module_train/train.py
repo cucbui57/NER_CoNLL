@@ -5,10 +5,20 @@ import torch
 import torch.nn as nn
 
 import torch.nn.functional as F
-from torch.autograd import Variable
+import torch
+import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from model.lstm import SimpleLSTM
+from tqdm import tqdm
+
+from model.evaluation import Evaluator, BasicMetrics, IOBMetrics
+import os
+from collections import defaultdict
+
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 # TEXT, vocab_size, word_embeddings, train_iter, test_iter = load_data_word_level()
 CHAR, WORD, vocab_word, vocab_char, vocab_word_size, vocab_char_size, word_embeddings, char_embeddings, train_iter, test_iter = load_data_word_char_level()

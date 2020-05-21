@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 
 
 class charcnn(nn.Module):
-    def __init__(self, hidden_dim, embedding_dim, vocab_size, weights=None):
+    def __init__(self, hidden_dim, embedding_dim, vocab_size, weights=None, dropout=0.1):
         super(charcnn, self).__init__()
         self.hidden_dim = hidden_dim
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
@@ -12,10 +13,19 @@ class charcnn(nn.Module):
         if weights is not None:
             self.embeddings.weight = nn.Parameter(weights, requires_grad=False)
         else:
-            self.embeddings.weight = torch.from_numpy(self.random_embedding(vocab_size, hidden_dim))
+            self.embeddings.weight.data.copy_ = torch.from_numpy(self.random_embedding(vocab_size, hidden_dim))
 
-        self.char_cnn = nn.Conv1d(embedding_dim, self.hidden_dim, kernel_size=3, padding=1)
+        self.kernels = [3, 4]
+        cnns = []
 
+        for k in self.kernels:
+            seq = nn.Sequential(
+                nn.Conv1d(embedding_dim, self.hidden_dim, kernel_size=k, padding=1),
+                nn.Tanh()
+            )
+            cnns.append(seq)
+        self.cnns = nn.ModuleList(cnns)
+        self.dropout = nn.Dropout(dropout)
 
     def random_embedding(self, vocab_size, embedding_dim):
         pretrain_emb = np.empty([vocab_size, embedding_dim])
@@ -29,6 +39,13 @@ class charcnn(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size * seq_len, x.size(2))
         x = self.embeddings(x)
-        char_cnn = self.char_cnn(x)
-        char_out = nn.MaxPool1d(char_cnn, char_cnn.size(2)).view(batch_size, -1)
+        x = torch.transpose(x, 2, 1)
+        tmp = [cnn(x) for cnn in self.cnns]
+        char_cnn = []
+        for item in tmp:
+            char_cnn.append(F.max_pool1d(item, item.size(2)))
+
+        char_cnn = torch.cat(char_cnn, dim=1)
+        char_out = char_cnn.view(batch_size, seq_len, -1)
+        char_out = self.dropout(char_out)
         return char_out

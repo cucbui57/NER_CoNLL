@@ -6,7 +6,7 @@ import numpy as np
 
 
 class charbilstm(nn.Module):
-    def __init__(self, hidden_dim, vocab_size, embedding_dim, weights=None):
+    def __init__(self, hidden_dim, vocab_size, embedding_dim, weights=None, dropout=0.1):
         super(charbilstm, self).__init__()
         self.hidden_dim = hidden_dim
         self.char_bilstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True,
@@ -15,8 +15,8 @@ class charbilstm(nn.Module):
         if weights is not None:
             self.embedding = nn.Parameter(weights, requires_grad=False)
         else:
-            # xem lai
-            self.embedding.weight = torch.from_numpy(self.random_embedding(vocab_size, embedding_dim))
+            self.embedding.weight.data.copy_ = torch.from_numpy(self.random_embedding(vocab_size, embedding_dim))
+        self.dropout = nn.Dropout(p=dropout)
 
     def random_embedding(self, vocab_size, embedding_dim):
         pretrain_emb = np.empty([vocab_size, embedding_dim])
@@ -33,4 +33,5 @@ class charbilstm(nn.Module):
         lstm_out, (ht, ct) = self.char_bilstm(x)
         ht_out = torch.cat((ht[-1], ht[-2]), dim=1)
         ht_out = ht_out.view(batch_size, seq_len, self.hidden_dim * 2)
+        ht_out = self.dropout(ht_out)
         return ht_out

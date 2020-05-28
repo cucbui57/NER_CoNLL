@@ -1,0 +1,35 @@
+path_save_model: save_models/
+#path_model_checkpoint: save_models/checkpoint_4
+path_model_checkpoint: None
+name_vocab: embedding.txt
+cache_folder: ../dataset/save_vocab/cache/
+path_save_vocab: ../dataset/save_vocab
+folder_data_train: ../dataset/data_train_split/
+path_data_test: ../dataset/data_train_split/train_00.txt
+
+#char config
+use_char: False
+embedding_dim_char: 150
+hidden_dim_char: 50
+char_level: cnn
+is_highway: True
+
+#word config
+embedding_dim_word: 300
+hidden_dim_word: 100
+drop_out: 0.1
+
+#training config
+num_epochs: 5
+learning_rate: 0.01
+optimizer: adam
+use_iob_metrics: True
+is_bidirectional: True
+is_attention: True
+use_residual: True
+use_norm_before_hidden: True
+use_norm_before_attention: True
+add_hidden_layer_component: True
+
+use_crf: True
+pooling: no

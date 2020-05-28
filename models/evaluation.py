@@ -39,7 +39,7 @@ class Evaluator(object):
         total_loss = 0
 
         prog_iter = tqdm(self.data_iter, leave=False)
-        tag_vocab = model.vocabs[2]
+        tag_vocab = model.vocabs[-1]
         word_vocab = model.vocabs[0]
         # file_out.write(model.vocabs[2])
         with torch.no_grad():
@@ -174,7 +174,7 @@ class BasicMetrics(Metrics):
     and sequence accuracy. It is meant to be passed to the Evaluator
     """
 
-    def __init__(self, output_vocab, ignore_symbols=['<unk>', '<pad>']):
+    def __init__(self, output_vocab, ignore_symbols=['<unk>', '<pad>', '<bos>', '<eos>']):
         """
         Parameters:
             output_vocab: Instance of torchtext.Vocab
@@ -186,6 +186,12 @@ class BasicMetrics(Metrics):
     def reset(self):
         self.total_correct_examples = 0
         self.total_correct_symbols = 0
+
+        self.total_true_negative = 0
+        self.total_true_positive = 0
+        self.total_false_negative = 0
+        self.total_false_positive = 0
+
         self.total_symbols = 0
         self.total_examples = 0
 

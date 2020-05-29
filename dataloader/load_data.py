@@ -20,11 +20,20 @@ def load_data():
               (None, None), ('label', label)]
 
     train, valid, test = datasets.CoNLL2000Chunking.splits(fields)
+
+    for item in train:
+        print(item.__dict__.keys())
+        print(item.input_word)
+        print(item.input_char)
+        print(item.label)
+        break
+
     input_word.build_vocab(train.input_word, test.input_word, valid.input_word, vectors=GloVe(name='6B', dim=300))
     input_char.build_vocab(train.input_char, test.input_word, valid.input_word)
     label.build_vocab(train.label)
 
-    # vocab_word = input_word.vocab
+    vocab_word = input_word.vocab
+    print(vocab_word.vectors)
     # word_embeddings = vocab_word.vectors
     # vocab_word_size = len(vocab_word)
     #
@@ -43,5 +52,5 @@ def load_data():
 
 if __name__ == '__main__':
     a = load_data()
-    vocabs = a['vocabs']
-    print((vocabs[2]).vectors)
+    # vocabs = a['vocabs']
+    # print((vocabs[2]).vectors)

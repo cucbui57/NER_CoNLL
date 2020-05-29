@@ -11,7 +11,7 @@ import json
 
 import torch.nn as nn
 
-NAME_CONFIG = 'model_parameter2.conf'
+NAME_CONFIG = 'model_parameter.conf'
 NAME_VOCABS = 'vocabs.pt'
 
 

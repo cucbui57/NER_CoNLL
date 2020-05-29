@@ -10,9 +10,9 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-COMMA_SIGN = 'C'
+COMMA_SIGN = 'B-C'
 NO_SIGN = 'O'
-PERIOD_SIGN = 'P'
+PERIOD_SIGN = 'B-P'
 
 
 class MyPretrainedVector(Vectors):
@@ -45,14 +45,14 @@ def get_all_path_file_in_folder(path):
     return list_path_file
 
 
-def make_vocab_each_file(path_folder_dataset, path_folder_save_vocab, min_freq=10):
+def make_vocab_each_file(path_folder_dataset, path_folder_save_vocab_each_file, min_freq=10):
     list_path_file = get_all_path_file_in_folder(path_folder_dataset)
 
     for e_path_file in list_path_file:
         name_file = re.search("([a-z_0-9]+)(.txt)", e_path_file)
         new_name_file = name_file.group().replace(".txt", "_vocab.pt")
         # print(new_name_file)
-        new_path_file = os.path.join(path_folder_save_vocab, new_name_file)
+        new_path_file = os.path.join(path_folder_save_vocab_each_file, new_name_file)
 
         input_word = data.Field(init_token="<bos>", eos_token="<eos>", batch_first=True)
         label = data.Field(init_token="<bos>", eos_token="<eos>", batch_first=True)
@@ -70,17 +70,18 @@ def make_vocab_each_file(path_folder_dataset, path_folder_save_vocab, min_freq=1
         torch.save(input_word.vocab, new_path_file)
 
 
-def combine_vocab_all_file(path_folder_vocab, path_save_vocab, name_vocab=None, cache_folder=None, min_freqs=10):
+def combine_vocab_all_file(path_folder_vocab_to_combine, path_save_vocab, name_vocab=None, cache_folder=None,
+                           min_freqs=10):
     '''
 
-    :param path_folder_vocab: path of folder vocab
+    :param path_folder_vocab_to_combine: path of folder vocab multiple file
     :param path_save_vocab: path save vocab
     :param name_vocab:  file name pretrained embedding
     :param cache_folder :use for load pretrained model embedding (folder save file pre)
     :param min_freqs: min freq word need appear for can be in dictionary
     :return:
     '''
-    list_path_file = get_all_path_file_in_folder(path_folder_vocab)
+    list_path_file = get_all_path_file_in_folder(path_folder_vocab_to_combine)
 
     dict_combine_vocab = defaultdict(lambda: 0)
 
@@ -123,7 +124,6 @@ def combine_vocab_all_file(path_folder_vocab, path_save_vocab, name_vocab=None, 
                            'quoting': 3}
     )
     label.build_vocab(dataset_label, specials_first=False)
-    print(label.vocab.stoi)
 
     os.remove("tmp_vocab_input.txt")
     os.remove("tmp_label.txt")
@@ -145,7 +145,7 @@ def load_vocabs_pre_build(path_save_vocabs):
     return vocabs
 
 
-def load_data_file(data_path, save_vocab_path):
+def load_data_file(data_path, save_vocab_path, use_gpu):
     input_word = data.Field(init_token="<bos>", eos_token="<eos>", batch_first=True, include_lengths=True)
     label = data.Field(init_token="<bos>", eos_token="<eos>", batch_first=True)
 
@@ -157,12 +157,15 @@ def load_data_file(data_path, save_vocab_path):
     vocabs = vocabs['vocabs']
     input_word.vocab = vocabs[0]
     label.vocab = vocabs[-1]
-
+    if use_gpu >= 0:
+        device = torch.device("cuda:" + str(use_gpu))
+    else:
+        device = torch.device("cpu")
     dataset_iter = data.BucketIterator(dataset=dataset,
                                        batch_size=32,
                                        sort_key=lambda x: len(x.input_word), repeat=False,
                                        sort_within_batch=True, shuffle=True,
-                                       device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+                                       device=device
                                        )
     # print(dataset_iter)
     # for batch in dataset_iter:
@@ -171,11 +174,20 @@ def load_data_file(data_path, save_vocab_path):
     return dataset_iter
 
 
+def build_vocab(path_folder_dataset, path_folder_save_vocab_each_file, path_save_vocab_combine, name_vocab=None,
+                cache_folder=None):
+    make_vocab_each_file(path_folder_dataset, path_folder_save_vocab_each_file)
+    combine_vocab_all_file(path_folder_save_vocab_each_file, path_save_vocab_combine, name_vocab, cache_folder)
+
+
 if __name__ == '__main__':
-    # list_path = get_all_path_file_in_folder("../dataset/data_train_split")
-    # print(list_path)
-    make_vocab_each_file("../dataset/data_train_split", "../dataset/save_vocab/train_vocab/")
-    combine_vocab_all_file("../dataset/save_vocab/train_vocab", "../dataset/save_vocab", name_vocab="embedding.txt",
-                           cache_folder="../dataset/save_vocab/cache/")
+    path_folder_dataset = "../dataset/data_train_split"
+    path_folder_save_vocab_each_file = "../dataset/save_vocab/train_vocab"
+    path_save_vocab_combine = "../dataset/save_vocab"
+    name_vocab = "embedding.txt"
+    cache_folder = "../dataset/save_vocab/vectors/"
+
+    build_vocab(path_folder_dataset, path_folder_save_vocab_each_file, path_save_vocab_combine, name_vocab,
+                cache_folder)
 
     # load_data_file("../dataset/data_train_split/train_00.txt", "../dataset/save_vocab")

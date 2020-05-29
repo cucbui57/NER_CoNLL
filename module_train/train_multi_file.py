@@ -24,8 +24,9 @@ def get_all_path_file_in_folder(path, data_type="train"):
 
 
 class Trainer(object):
-    def __init__(self, path_save_model, model, folder_data_train, evaluator, learning_rate, path_save_vocab,use_gpu=None,
-                 optimizer='adam', use_iob_metrics=True,
+    def __init__(self, path_save_model, model, folder_data_train, evaluator, learning_rate, path_save_vocab,
+                 use_gpu=None,
+                 optimizer='adam', use_iob_metrics=True, batch_size=32,
                  learning_rate_decay=None, name_model_checkpoint=None):
         self.path_save_model = path_save_model
         self.path_save_vocab = path_save_vocab
@@ -36,6 +37,7 @@ class Trainer(object):
         self.use_iob_metrics = use_iob_metrics
         self.learning_rate = learning_rate
         self.use_gpu = use_gpu
+        self.batch_size = batch_size
 
         model_params = filter(lambda p: p.requires_grad, model.parameters())
 
@@ -63,7 +65,7 @@ class Trainer(object):
         prefix_model_name, monitor_metric, mode = check_point
         return prefix_model_name, monitor_metric, mode
 
-    def train(self, num_epochs, model_check_point=None):
+    def train(self, num_epochs, model_check_point=None, num_checkpoint=1000000):
         list_data_train = get_all_path_file_in_folder(self.folder_data_train)
 
         all_metrics = defaultdict(list)
@@ -80,6 +82,7 @@ class Trainer(object):
             prefix_cp_model_name, monitor_metric_cp, mode_cp = self.get_model_check_point_criteria(model_check_point)
 
         best_value_metrics = 0
+        num_checkpoint_save_model = num_checkpoint // self.batch_size
 
         for epoch in range(num_epochs):
             print('----------Epoch ' + str(epoch) + ' -----------------')
@@ -105,6 +108,10 @@ class Trainer(object):
                     count += 1
                     prog_iter.set_description('Training')
                     prog_iter.set_postfix(loss=(epoch_loss / count))
+                    print(num_checkpoint_save_model)
+                    if count % num_checkpoint_save_model == 0:
+                        name_model = "model_epoch_{}_count_{}.pt".format(epoch, count)
+                        self.model.save(self.path_save_model, name_model)
 
                 train_loss = epoch_loss / count
                 all_metrics['train_loss'].append(train_loss)
@@ -168,12 +175,12 @@ class Trainer(object):
                             name_optimizer = "optimizer_" + "_".join(arr_name_model[1:])
                             path_save_optimizer = os.path.join(self.path_save_model, name_optimizer)
                             torch.save(self.optimizer.state_dict(), path_save_optimizer)
-                else:
-                    name_model = "model_epoch_{}.pt".format(epoch)
-                    self.model.save(self.path_save_model, name_model)
+                # else:
+                #     name_model = "model_epoch_{}.pt".format(epoch)
+                #     self.model.save(self.path_save_model, name_model)
             else:
-                name_model = "model_epoch_{}.pt".format(epoch)
-                self.model.save(self.path_save_model, name_model)
+                # name_model = "model_epoch_{}.pt".format(epoch)
+                # self.model.save(self.path_save_model, name_model)
                 print("epoch {} train F1: {}, precision: {},"
                       " recall: {} *** ".format(epoch,
                                                 round(train_metrics['F1'], 3),

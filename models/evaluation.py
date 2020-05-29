@@ -30,7 +30,6 @@ class Evaluator(object):
         Returns: A dict containing all the metrics
         """
 
-        file_out = open("../module_evaluate/evaluate.txt", 'w')
         self.data_iter.init_epoch()
         model.eval()
         for m in self.metrics:
@@ -56,12 +55,12 @@ class Evaluator(object):
                 #         list_word.append(word_vocab.itos[word[0]])
                 # print(list_word)
 
-                for item in predictions:
-                    # print(item)
-                    # print(tag_vocab.itos[item.tolist()])
-                    for i in item.tolist():
-                        file_out.write(tag_vocab.itos[i] + '\t')
-                file_out.write('\n')
+                # for item in predictions:
+                #     # print(item)
+                #     # print(tag_vocab.itos[item.tolist()])
+                #     for i in item.tolist():
+                #         file_out.write(tag_vocab.itos[i] + '\t')
+                # file_out.write('\n')
                 for m in self.metrics:
                     m.evaluate(batch, loss, predictions)
                 total_loss += float(loss)

@@ -14,8 +14,22 @@ from models.word_lstm import word_lstm
 from dataloader.load_data_big import load_data_file, load_vocabs_pre_build
 import yaml
 
+import logging
 
-def get_all_path_file_in_folder(path, data_type="train"):
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s",
+                              "%Y-%m-%d %H:%M:%S")
+
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+
+def get_all_path_file_in_folder(path, data_type="part_3"):
     list_path_file = []
     for item in os.listdir(path):
         if re.search(data_type, item):
@@ -25,8 +39,7 @@ def get_all_path_file_in_folder(path, data_type="train"):
 
 class Trainer(object):
     def __init__(self, path_save_model, model, folder_data_train, evaluator, learning_rate, path_save_vocab,
-                 use_gpu=None,
-                 optimizer='adam', use_iob_metrics=True, batch_size=32,
+                 use_gpu=None, optimizer='adam', use_iob_metrics=True, batch_size=32,
                  learning_rate_decay=None, name_model_checkpoint=None):
         self.path_save_model = path_save_model
         self.path_save_vocab = path_save_vocab
@@ -71,7 +84,7 @@ class Trainer(object):
         all_metrics = defaultdict(list)
         tag_vocab = self.model.vocabs[-1]
         # print(len(tag_vocab))
-        print(tag_vocab.itos)
+        logger.info(tag_vocab.itos)
         metrics = [BasicMetrics(output_vocab=tag_vocab)]
         if self.use_iob_metrics:
             metrics += [IOBMetrics(tag_vocab=tag_vocab)]
@@ -85,17 +98,18 @@ class Trainer(object):
         num_checkpoint_save_model = num_checkpoint // self.batch_size
 
         for epoch in range(num_epochs):
-            print('----------Epoch ' + str(epoch) + ' -----------------')
+            logger.info('----------Epoch ' + str(epoch) + ' -----------------')
             epoch_loss = 0
             count = 0
             total_train_metrics = {}
             for file in list_data_train:
-                print("Training data in file: " + re.search("([A-Za-z_0-9]+)(.txt)", file).group())
+                file_loss = 0
+                logger.info("Training data in file: " + re.search("([A-Za-z_0-9]+)(.txt)", file).group())
                 train_iter = load_data_file(file, save_vocab_path=self.path_save_vocab, use_gpu=self.use_gpu)
                 train_evaluator = Evaluator("train", train_iter, *metrics)
 
                 prog_iter = tqdm(train_iter)
-                for batch in prog_iter:
+                for idx, batch in enumerate(prog_iter):
                     self.model.train()
                     self.optimizer.zero_grad()
                     loss, _ = self.model.loss(batch)
@@ -105,10 +119,12 @@ class Trainer(object):
                     self.optimizer.step()
 
                     epoch_loss += loss.item()
+                    file_loss += loss.item()
                     count += 1
                     prog_iter.set_description('Training')
-                    prog_iter.set_postfix(loss=(epoch_loss / count))
-                    print(num_checkpoint_save_model)
+                    # prog_iter.set_postfix(loss=(epoch_loss / count))
+                    prog_iter.set_postfix(loss=(file_loss / (idx + 1)))
+                    # logger.info(num_checkpoint_save_model)
                     if count % num_checkpoint_save_model == 0:
                         name_model = "model_epoch_{}_count_{}.pt".format(epoch, count)
                         self.model.save(self.path_save_model, name_model)
@@ -116,20 +132,29 @@ class Trainer(object):
                 train_loss = epoch_loss / count
                 all_metrics['train_loss'].append(train_loss)
                 train_metrics = train_evaluator.evaluate(self.model)
+                #                 logger.info("train metrics in file: " + re.search("([A-Za-z_0-9]+)(.txt)", file).group())
+                #                 logger.info(type(train_metrics))
+                #                 logger.info(train_metrics)
                 for item in train_metrics.keys():
+                    #                     logger.info(item)
                     if item not in total_train_metrics:
                         total_train_metrics[item] = train_metrics[item]
+                    #                         logger.info(total_train_metrics[item])
                     else:
                         total_train_metrics[item] += train_metrics[item]
+            #                         logger.info(total_train_metrics[item])
 
             for key in total_train_metrics.keys():
                 total_train_metrics[key] /= len(list_data_train)
 
-            print("\ntrain metric here: ", total_train_metrics)
+            #             logger.info("train metric bellow:")
+            #             logger.info(total_train_metrics)
+
+            logger.info("train metric here: {}".format(total_train_metrics))
 
             if self.evaluator:
                 eval_metrics = self.evaluator.evaluate(self.model)
-                print("valid metric here: ", eval_metrics)
+                logger.info("valid metric here: {}".format(eval_metrics))
                 if not isinstance(eval_metrics, dict):
                     raise ValueError('eval_fn should return a dict of metrics')
 
@@ -175,21 +200,16 @@ class Trainer(object):
                             name_optimizer = "optimizer_" + "_".join(arr_name_model[1:])
                             path_save_optimizer = os.path.join(self.path_save_model, name_optimizer)
                             torch.save(self.optimizer.state_dict(), path_save_optimizer)
-                # else:
-                #     name_model = "model_epoch_{}.pt".format(epoch)
-                #     self.model.save(self.path_save_model, name_model)
             else:
-                # name_model = "model_epoch_{}.pt".format(epoch)
-                # self.model.save(self.path_save_model, name_model)
-                print("epoch {} train F1: {}, precision: {},"
-                      " recall: {} *** ".format(epoch,
-                                                round(train_metrics['F1'], 3),
-                                                round(train_metrics['precision'], 3),
-                                                round(train_metrics['recall'], 3)))
+                logger.info("epoch {} train F1: {}, precision: {},"
+                            " recall: {} *** ".format(epoch,
+                                                      round(train_metrics['F1'], 3),
+                                                      round(train_metrics['precision'], 3),
+                                                      round(train_metrics['recall'], 3)))
 
     def evaluate(self):
         eval_metrics = self.evaluator.evaluate(self.model)
-        print('test metric here: ', eval_metrics)
+        logger.info('test metric here: ', eval_metrics)
 
 
 def load_config_file(configuration_directory):
